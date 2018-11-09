@@ -72,10 +72,12 @@ def updateImage(image_msg):
 
     image = bridge.imgmsg_to_cv2(image_msg, "bgr8")
     image, scale = resize_image(image)
-   
+
     retinanet(image)
- 
+
 def retinanet(image):
+    temp = image
+
     # convert cv mat to np array through PIL
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     image = PIL.Image.fromarray(image)
