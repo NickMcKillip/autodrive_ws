@@ -51,12 +51,14 @@ keras.backend.tensorflow_backend.set_session(get_session())
 
 # adjust this to point to your downloaded/trained model
 # models can be downloaded here: https://github.com/fizyr/keras-retinanet/releases
-model_path = "/home/autodrive/Desktop/catkin_ws/src/keras-retinanet/snapshots/juan.h5"
+model_path = "/home/perception/Desktop/catkin_ws/src/keras-retinanet/snapshots/juan.h5"
 model = models.load_model(model_path, backbone_name='resnet50')
 model._make_predict_function()
 
 # load label to names mapping for visualization purposes
 labels_to_names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck', 8: 'boat', 9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench', 14: 'bird', 15: 'cat', 16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack', 25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase', 29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball', 33: 'kite', 34: 'baseball bat', 35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle', 40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple', 48: 'sandwich', 49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 56: 'chair', 57: 'couch', 58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet', 62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote', 66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book', 74: 'clock', 75: 'vase', 76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
+
+detect_pub = rospy.Publisher('/detected', Image, queue_size = 1)
 
 # signal interrupt handler, immediate stop of CAN_Controller
 def signalInterruptHandler(signum, frame):
@@ -72,9 +74,63 @@ def updateImage(image_msg):
 
     image = bridge.imgmsg_to_cv2(image_msg, "bgr8")
     image, scale = resize_image(image)
-   
+
     retinanet(image)
- 
+def getDistance(box):
+    print(box)
+    print("x1-x2 = ", abs(box[0]-box[2]))
+    print("y1-y2 = ", abs(box[1]-box[3]))
+    area = abs(box[0]-box[2])*abs(box[1]-box[3])
+    print("Area = ",area)
+
+    focalPoint = (93.454895 * 160)/30
+    focalPoint *= 1.15
+    distance = (30*focalPoint)/abs(box[0]-box[2])
+    distance = distance/12
+    #alpha = float(box[2]-box[0])
+    #alpha = alpha/100
+    #print("Alpha: ",alpha)
+
+    print("Distance: ",(distance-5)*.3048)#*alpha)
+
+    return (distance-5)*.3048
+
+def detect_color(imageName,box):
+
+
+    img = cv2.imread(imageName)
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+
+    img2 = Image.fromarray(img)
+    img2 = img2.crop((box[0],box[1],box[2],box[3]))
+
+    img3 = np.array(img2)
+
+    #px = img3[10,10]
+    #print(px,px[0])
+    plt.imshow(img3)
+
+    green_score = 0
+    red_score = 0
+
+    width = int(box[2] - box[0])
+    height = int(box[3] - box[1])
+
+
+    for x in range(0,width):
+        for y in range(0,height):
+            px = img3[y,x]
+            if( ((px[0]>3) and (px[0] < 98)) and ((px[1]>185) and (px[1] <255)) and ((px[2] > 27) and (px[2] <119))):
+                green_score+= 1
+            if( ((px[0]>185) and (px[0] < 255)) and ((px[1]>3) and (px[1] <58)) and ((px[2] > 9) and (px[2] <65))):
+                red_score+= 1
+
+    if(red_score > green_score):
+        return "red"
+    else:
+        return "green"
+
+
 def retinanet(image):
     # convert cv mat to np array through PIL
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -112,14 +168,26 @@ def retinanet(image):
         caption = "{} {:.3f}".format(labels_to_names[label], score)
         draw_caption(draw, b, caption)
 
+        if(label == 9): #is a traffic light
+            what_color = detect_color(imageName,box)
+            print(box,what_color)
+
+        if(label == 11): #is a stopsign
+            distance = getDistance(box)
+            
         print("I see a " + str(labels_to_names[label]) + "(" + str(score) + ")")
 
     plt.figure(figsize=(15, 15))
     plt.axis('off')
     #plt.imshow(draw)
     #plt.show()
-    cv2.imshow("hi", draw)
-    cv2.waitKey(1)
+    #cv2.imshow("hi", draw)
+    #cv2.waitKey(1)
+    bridge = CvBridge()
+    try:
+        detect_pub.publish(bridge.cv2_to_imgmsg(draw, "bgr8"))
+    except CvBridgeError as e:
+        print(e)
 
 if __name__ == "__main__":
     # setup signal interrupt handler
@@ -130,8 +198,8 @@ if __name__ == "__main__":
 
     # setup ros semantics
     rospy.init_node('camera_detection_node', anonymous=True)
-    sub_image = rospy.Subscriber('/front_camera/image_raw', Image, updateImage, queue_size=1)
 
+    sub_image = rospy.Subscriber('/front_camera/image_raw', Image, updateImage, queue_size=1)
 
     rospy.spin()
 
