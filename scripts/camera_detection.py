@@ -76,6 +76,7 @@ def updateImage(image_msg):
     image, scale = resize_image(image)
 
     retinanet(image)
+<<<<<<< HEAD
 def getDistance(box):
     print(box)
     print("x1-x2 = ", abs(box[0]-box[2]))
@@ -130,8 +131,12 @@ def detect_color(imageName,box):
     else:
         return "green"
 
+=======
+>>>>>>> 6f4b4071b8919c67aafe44a912c3f3ee6bc7ceb1
 
 def retinanet(image):
+    temp = image
+
     # convert cv mat to np array through PIL
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     image = PIL.Image.fromarray(image)
