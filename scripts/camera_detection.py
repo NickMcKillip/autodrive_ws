@@ -97,19 +97,21 @@ def getDistance(box):
     return (distance-5)*.3048
 
 def detect_color(image,box):
+img = image
+
+    #img = cv2.imread(imageName)
+    #img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+
+    #img2 = Image.fromarray(img)
+    #img2 = img2.crop((box[0],box[1],box[2],box[3]))
+    crop_img = img[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
 
 
-    img = image
-    img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-
-    img2 = Image.fromarray(img)
-    img2 = img2.crop((box[0],box[1],box[2],box[3]))
-
-    img3 = np.array(img2)
+    img3 = np.array(crop_img)
 
     #px = img3[10,10]
     #print(px,px[0])
-    plt.imshow(img3)
+    #plt.imshow(img3)
 
     green_score = 0
     red_score = 0
