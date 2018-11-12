@@ -51,7 +51,7 @@ keras.backend.tensorflow_backend.set_session(get_session())
 
 # adjust this to point to your downloaded/trained model
 # models can be downloaded here: https://github.com/fizyr/keras-retinanet/releases
-model_path = "/home/perception/Desktop/catkin_ws/src/keras-retinanet/snapshots/juan.h5"
+model_path = "/home/autodrive/Desktop/catkin_ws/src/keras-retinanet/snapshots/juan.h5"
 model = models.load_model(model_path, backbone_name='resnet50')
 model._make_predict_function()
 
@@ -76,7 +76,7 @@ def updateImage(image_msg):
     image, scale = resize_image(image)
 
     retinanet(image)
-<<<<<<< HEAD
+
 def getDistance(box):
     print(box)
     print("x1-x2 = ", abs(box[0]-box[2]))
@@ -96,10 +96,10 @@ def getDistance(box):
 
     return (distance-5)*.3048
 
-def detect_color(imageName,box):
+def detect_color(image,box):
 
 
-    img = cv2.imread(imageName)
+    img = image
     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
 
     img2 = Image.fromarray(img)
@@ -131,11 +131,8 @@ def detect_color(imageName,box):
     else:
         return "green"
 
-=======
->>>>>>> 6f4b4071b8919c67aafe44a912c3f3ee6bc7ceb1
-
 def retinanet(image):
-    temp = image
+    image_copy = image
 
     # convert cv mat to np array through PIL
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -174,12 +171,12 @@ def retinanet(image):
         draw_caption(draw, b, caption)
 
         if(label == 9): #is a traffic light
-            what_color = detect_color(imageName,box)
+            what_color = detect_color(image_copy,box)
             print(box,what_color)
 
         if(label == 11): #is a stopsign
             distance = getDistance(box)
-            
+
         print("I see a " + str(labels_to_names[label]) + "(" + str(score) + ")")
 
     plt.figure(figsize=(15, 15))
