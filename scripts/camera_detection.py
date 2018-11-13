@@ -22,6 +22,7 @@ import os
 import time
 import PIL
 from PIL import ImageFile
+from std_msgs.msg import Float32MultiArray
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # neural network
@@ -31,6 +32,7 @@ from keras_retinanet import models
 from keras_retinanet.utils.image import read_image_bgr, preprocess_image, resize_image
 from keras_retinanet.utils.visualization import draw_box, draw_caption
 from keras_retinanet.utils.colors import label_color
+from path_planner.msg import TrafficLightArray, TrafficLight
 
 # ros
 import rospy
@@ -60,6 +62,10 @@ labels_to_names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'air
 
 detect_pub = rospy.Publisher('/detected', Image, queue_size = 1)
 
+bbox_pub = rospy.Publisher('/bbox', Float32MultiArray, queue_size = 1)
+
+traff_light_pub = rospy.Publisher('/traffic_light',TrafficLightArray, queue_size = 1)
+
 # signal interrupt handler, immediate stop of CAN_Controller
 def signalInterruptHandler(signum, frame):
     print("Camera Detection - Exiting ROS Node...")
@@ -77,16 +83,16 @@ def updateImage(image_msg):
 
     retinanet(image)
 
-def getDistance(box):
+def getDistance(box,width):
     print(box)
-    print("x1-x2 = ", abs(box[0]-box[2]))
-    print("y1-y2 = ", abs(box[1]-box[3]))
-    area = abs(box[0]-box[2])*abs(box[1]-box[3])
-    print("Area = ",area)
+    #print("x1-x2 = ", abs(box[0]-box[2]))
+    #print("y1-y2 = ", abs(box[1]-box[3]))
+    #area = abs(box[0]-box[2])*abs(box[1]-box[3])
+    #print("Area = ",area)
 
-    focalPoint = (93.454895 * 160)/30
+    focalPoint = (93.454895 * 160)/width
     focalPoint *= 1.15
-    distance = (30*focalPoint)/abs(box[0]-box[2])
+    distance = width*focalPoint)/abs(box[0]-box[2])
     distance = distance/12
     #alpha = float(box[2]-box[0])
     #alpha = alpha/100
@@ -97,7 +103,7 @@ def getDistance(box):
     return (distance-5)*.3048
 
 def detect_color(image,box):
-img = image
+    img = image
 
     #img = cv2.imread(imageName)
     #img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
@@ -129,9 +135,9 @@ img = image
                 red_score+= 1
 
     if(red_score > green_score):
-        return "red"
+        return 1
     else:
-        return "green"
+        return 5
 
 def retinanet(image):
     image_copy = image
@@ -151,6 +157,7 @@ def retinanet(image):
 
     # process image
     start = time.time()
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     print("Processing Image...")
     boxes, scores, labels = model.predict(np.expand_dims(image, axis=0))
     print("processing time: ", time.time() - start)
@@ -159,6 +166,7 @@ def retinanet(image):
     boxes /= scale
 
     # visualize detections
+    """traffic_light_array = TrafficLightArray()"""
     for box, score, label in zip(boxes[0], scores[0], labels[0]):
         # scores are sorted so we can break
         if score < 0.3:
@@ -173,13 +181,28 @@ def retinanet(image):
         draw_caption(draw, b, caption)
 
         if(label == 9): #is a traffic light
+            """traff_light_msg = TrafficLight()"""
             what_color = detect_color(image_copy,box)
-            print(box,what_color)
+            """traff_light_msg.type = what_color
+            traff_light_msg.x = distance
+            traff_light_msg.y = 0"""
+
+            if what_color == 1:
+                print(box,"red")
+            else:
+                print(box,"green")
+            """traffic_light_array.lights.append(traff_light_msg)"""
 
         if(label == 11): #is a stopsign
-            distance = getDistance(box)
+            distance = getDistance(box,30)
+            bbox_pub.publish(list(box))
+        if(label == 2):
+            #send info to Nick
+            bbox_pub.publish(list(box))
 
         print("I see a " + str(labels_to_names[label]) + "(" + str(score) + ")")
+
+    """traff_light_pub.publish(traffic_light_array)"""
 
     plt.figure(figsize=(15, 15))
     plt.axis('off')
