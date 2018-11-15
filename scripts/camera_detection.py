@@ -92,7 +92,7 @@ def getDistance(box,width):
 
     focalPoint = (93.454895 * 160)/width
     focalPoint *= 1.15
-    distance = width*focalPoint)/abs(box[0]-box[2])
+    distance = (width*focalPoint)/abs(box[0]-box[2])
     distance = distance/12
     #alpha = float(box[2]-box[0])
     #alpha = alpha/100
@@ -169,7 +169,7 @@ def retinanet(image):
     """traffic_light_array = TrafficLightArray()"""
     for box, score, label in zip(boxes[0], scores[0], labels[0]):
         # scores are sorted so we can break
-        if score < 0.3:
+        if score < 0.5:
             break
 
         color = label_color(label)
@@ -180,7 +180,11 @@ def retinanet(image):
         caption = "{} {:.3f}".format(labels_to_names[label], score)
         draw_caption(draw, b, caption)
 
+        array_msg = Float32MultiArray()
+
         if(label == 9): #is a traffic light
+        #120.5 ft
+        #250 inches
             """traff_light_msg = TrafficLight()"""
             what_color = detect_color(image_copy,box)
             """traff_light_msg.type = what_color
@@ -195,10 +199,13 @@ def retinanet(image):
 
         if(label == 11): #is a stopsign
             distance = getDistance(box,30)
-            bbox_pub.publish(list(box))
+            array_msg.data = list(box)
+            bbox_pub.publish(array_msg)
+
         if(label == 2):
             #send info to Nick
-            bbox_pub.publish(list(box))
+            array_msg.data = list(box)
+            bbox_pub.publish(array_msg)
 
         print("I see a " + str(labels_to_names[label]) + "(" + str(score) + ")")
 
@@ -226,7 +233,7 @@ if __name__ == "__main__":
     # setup ros semantics
     rospy.init_node('camera_detection_node', anonymous=True)
 
-    sub_image = rospy.Subscriber('/front_camera/image_raw', Image, updateImage, queue_size=1)
+    sub_image = rospy.Subscriber('/front_camera/image_raw', Image, updateImage, queue_size=1, buff_size=26000000)
 
     rospy.spin()
 
