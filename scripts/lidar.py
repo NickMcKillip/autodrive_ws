@@ -16,8 +16,7 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Point
 from torch.autograd import Variable
 import sys
-from frustum_pointnet import FrustumPointNet
-from path_planner.msg import ObstacleArray, Obstacle
+from path_planner.msg import TrafficLightArray, TrafficLight, TrafficSignArray, TrafficSign, ObstacleArray, Obstacle
 import os
 import math
 import message_filters
@@ -36,6 +35,8 @@ class DataLoader():
     def __init__(self):
         self.calib = calibread(home_dir + "scripts/006330" + ".txt")
         self.obstacle_publisher = rospy.Publisher('/obstacle', ObstacleArray, queue_size = 1) #pathplanning
+        self.traff_light_pub = rospy.Publisher('/traffic_light',TrafficLightArray, queue_size = 1)
+        self.traff_sign_pub = rospy.Publisher('/traffic_sign',TrafficSignArray, queue_size = 1)
 
         self.point_cloud = None
         self.bbox = None
@@ -47,34 +48,9 @@ class DataLoader():
         self.header = None
         self.oldheader = None
         self.lock = False
-        '''self.labels_to_names = {0: 'go',
-                                1 : 'stop',
-                                2 : 'stopLeft',
-                                3 : 'goLeft',
-                                4 : 'warning',
-                                5 :'warningLeft',
-                                6 : 'car',
-                                7 : 'left_turn',
-                                8 : 'right_turn',
-                                9 : 'Traffic_cones',
-                                10 :'parking_sign_handicap',
-                                11 : 'do_not_enter',
-                                12 :'bicycle',
-                                13 :'parking_sign',
-                                14 :'stopsign',
-                                15 : 'person'}
-         '''
-        self.labels_to_names = {0: 'person', 1: 'bicycle', 2: 'car', 3: 'motorcycle', 4: 'airplane', 5: 'bus', 6: 'train', 7: 'truck', 8: 'boat'
-                                ,9: 'traffic light', 10: 'fire hydrant', 11: 'stop sign', 12: 'parking meter', 13: 'bench', 14: 'bird', 15: 'cat'
-                               ,16: 'dog', 17: 'horse', 18: 'sheep', 19: 'cow', 20: 'elephant', 21: 'bear', 22: 'zebra', 23: 'giraffe', 24: 'backpack'
-                               ,25: 'umbrella', 26: 'handbag', 27: 'tie', 28: 'suitcase', 29: 'frisbee', 30: 'skis', 31: 'snowboard', 32: 'sports ball'
-                               ,33: 'kite', 34: 'baseball bat', 35: 'baseball glove', 36: 'skateboard', 37: 'surfboard', 38: 'tennis racket', 39: 'bottle'
-                               ,40: 'wine glass', 41: 'cup', 42: 'fork', 43: 'knife', 44: 'spoon', 45: 'bowl', 46: 'banana', 47: 'apple', 48: 'sandwich'
-                               ,49: 'orange', 50: 'broccoli', 51: 'carrot', 52: 'hot dog', 53: 'pizza', 54: 'donut', 55: 'cake', 56: 'chair', 57: 'couch'
-                               ,58: 'potted plant', 59: 'bed', 60: 'dining table', 61: 'toilet', 62: 'tv', 63: 'laptop', 64: 'mouse', 65: 'remote'
-                               ,66: 'keyboard', 67: 'cell phone', 68: 'microwave', 69: 'oven', 70: 'toaster', 71: 'sink', 72: 'refrigerator', 73: 'book'
-                               ,74: 'clock', 75: 'vase', 76: 'scissors', 77: 'teddy bear', 78: 'hair drier', 79: 'toothbrush'}
- 
+        self.light_to_num = {'greenLight' : 5, 'redLight': 1,'greenLightLeft': 4,'yellowLight' : 3,'yellowLightLeft' : 2}
+        self.sign_to_num = {'stopsign' : 1,  'parking_sign' : 2, 'parking_sign_handicap': 3 , 'speed_limit_10': 4, 'speed_limit_15' : 4, 'speed_limit_20' : 4, 'speed_limit_25' : 4, 'speed_limit_5' : 4, 'left_turn' : 5, 'right_turn' :6, 'do_not_enter' : 7}
+        self.obs_to_num = {'bicyclist' : 1, 'car' : 3, 'person' : 4}
 
     def set_point_cloud(self, msg):
         x = []
@@ -115,9 +91,10 @@ class DataLoader():
         start = datetime.datetime.now()
         bbox = self.bbox
         point_cloud = self.point_cloud
-        objectlist = Float32MultiArray()
         obstacle_array = ObstacleArray()
-
+        traffic_light_array = TrafficLightArray()
+        traffic_sign_array = TrafficSignArray()
+        
         calib = self.calib
         p2 = calib["P2"]
         Tr_velo_to_cam_orig = calib["Tr_velo_to_cam"]
@@ -179,19 +156,39 @@ class DataLoader():
         mean = np.mean(self.removeoutliers(frustum_point_cloud_xyz,1), axis = 0)
         distance = math.sqrt(mean[0]**2 + mean[1]**2 + mean[2]**2)
         #objectlist.data = [float(self.label_string), *mean, distance]
-        obs = Obstacle()
         
+        obs = Obstacle()
+        name = self.label_string
         x = mean[2]
         y = -mean[0]
         z = mean[1]
-        obs.x = x 
-        obs.y = y
-        obs.z = z 
-        obs.type = int(self.label_string)
-        obstacle_array.obstacles.append(obs)
-        self.obstacle_publisher.publish(obstacle_array)
-        print (self.labels_to_names[int(self.label_string)] + " x: " + str(mean[0]) + " y: " + str(mean[1]) + " z: " + str(mean[2]))
-        #label = float(self.label_string)
+        
+        if name in self.obs_to_num:
+          obstacle_array.obstacles.append(obs)
+          self.obstacle_publisher.publish(obstacle_array)
+          obs.x = x 
+          obs.y = y
+          obs.z = z 
+          obs.type = self.obs_to_num[name]
+          obstacle_array.obstacles.append(obs)
+          self.obstacle_publisher.publish(obstacle_array)
+        if name in self.sign_to_num:
+          traff_sign_msg = TrafficSign() 
+          traff_sign_msg.type = self.sign_to_num[name] 
+          traff_sign_msg.x = x
+          traff_sign_msg.y = y
+          traffic_sign_array.signs.append(traff_sign_msg)
+          self.traff_sign_pub.publish(traffic_sign_array)
+        if name in self.light_to_num: #is a traffic light
+
+          traff_light_msg = TrafficLight()
+          traff_light_msg.type = self.light_to_num[name]
+          traff_light_msg.x = x
+          traff_light_msg.y = y
+          traffic_light_array.lights.append(traff_light_msg)
+          self.traff_light_pub.publish(traffic_light_array)
+
+        print (name + " x: " + str(mean[0]) + " y: " + str(mean[1]) + " z: " + str(mean[2]))
 
         print ("Distance: " + str(distance))
         end = datetime.datetime.now()
@@ -202,7 +199,6 @@ class DataLoader():
 if __name__ == "__main__":
 
     data = DataLoader()
-    print("lidar_main_here")
 
     # setup signal interrupt handler
     #signal.signal(signal.SIGINT, signalInterruptHandler)
