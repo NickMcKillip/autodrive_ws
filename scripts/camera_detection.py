@@ -4,7 +4,6 @@
 # Project:      Texas A&M AutoDrive Challenge - Year 2
 # Language:     Python 3.5.2
 # ROS Package:  camera_detection
-# Repository:   https://github.tamu.edu/kipvasq9/camera_detection
 # File Name:    camera_detection.py
 # Version:      1.0.0
 # Description:  Provide access to Neural Networks through ROS.
@@ -66,7 +65,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def get_session():
+def get_session():f
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     return tf.Session(config=config)
@@ -91,7 +90,7 @@ class CameraDetectionROSNode:
     def __init__(self):
         self.image = None   # image variable
         self.active = True  # should we be processing images
-        self.obstacle_publisher = rospy.Publisher('/obstacle', ObstacleArray, queue_size = 1)
+        self.obstacle_publisher = rospy.Publisherf('/obstacle', ObstacleArray, queue_size = 1)
         self.label_publisher = rospy.Publisher('/labels', String, queue_size = 1)
         self.stamp_publisher = rospy.Publisher('/stamp', Header, queue_size = 1)
         self.pcl_publisher = rospy.Publisher('/campcl', PointCloud2, queue_size = 1)
@@ -262,37 +261,8 @@ class CameraDetectionROSNode:
             name = self.labels_to_names[label]
             
             array_msg.data = list(box)
-            u_min, u_max = box[0]/2.56,box[2]/2.56
-            v_min, v_max = box[1]/2.56, box[3]/2.56
-            self.label_publisher.publish(str(name)
-            if 'Light' in name: #is a traffic light
-                convert_label = {'yellowLightLeft' : 5, : 1,-1,4,3,2}
-                traff_light_msg = TrafficLight()
-                #what_color = self.detect_color(image_copy,box)
-                distance = self.getDistance(box,15.25,84.96498,250,1.25)
-                traff_light_msg.type = convert_label[label]
-                traff_light_msg.x = distance
-                traff_light_msg.y = 0
-                traffic_light_array.lights.append(traff_light_msg)
-
-            if name in ['stopsign','parking_sign_handicap', 'left_turn', 'right_turn', 'do_not_enter'] or 'speed_limit' in name:
-                traff_sign_msg = TrafficSign()
-                #getDistance(self, box,width,pWidth,dist,calibration)
-                #distance = self.getDistance(box,30,93.454895,180,1.15)
-                distance = self.getDistance(box,30,240.78,160,1.15)
-                self.bbox_pub.publish(array_msg)
-                traff_sign_msg.type = sign_to_num[label] 
-                traff_sign_msg.x = distance
-                traff_sign_msg.y = 0
-                traffic_sign_array.signs.append(traff_sign_msg)
-
-                #array_msg.data = list(box)
-                #self.bbox_pub.publish(array_msg)
-            if name  == 'person':
-                #send info to Nick
-                self.bbox_pub.publish(array_msg)
-                #self.person_track_pub.publish(array_msg)
-        
+            self.bbox_pub.publish(array_msg)
+           
         try:
             self.detect_pub.publish(self.bridge.cv2_to_imgmsg(draw, "bgr8"))
         except CvBridgeError as e:
