@@ -175,8 +175,8 @@ class DataLoader():
         if name in self.sign_to_num:
           traff_sign_msg = TrafficSign() 
           traff_sign_msg.type = self.sign_to_num[name] 
-       	  if 'speed_limit' in name:
-	    traff_sign_msg.speed_limit = int(name.split('_')[-1])
+       	if 'speed_limit' in name:
+	  traff_sign_msg.speed_limit = int(name.split('_')[-1])
           traff_sign_msg.x = x
           traff_sign_msg.y = y
           traffic_sign_array.signs.append(traff_sign_msg)
