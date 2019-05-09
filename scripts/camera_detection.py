@@ -210,11 +210,11 @@ class CameraDetectionROSNode:
 
 
     def retinanet(self, image):
-#        image = image[0:1500,:]
+        #image = image[0:1500,:]
         #self.stamp = rospy.get_rostime()
         #print(self.stamp.secs + round(self.stamp.nsecs/1000000000,1))
         image_copy = image
-
+        
         # convert cv mat to np array through PIL
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         image = PIL.Image.fromarray(image)
@@ -222,9 +222,10 @@ class CameraDetectionROSNode:
 
         # copy to draw on
         draw = image.copy()
-        #draw = cv2.cvtColor(draw, cv2.COLOR_BGR2RGB)
+        draw = cv2.cvtColor(draw, cv2.COLOR_BGR2RGB)
 
-        # preprocess image for network
+         
+        # substract img net mean
         image = preprocess_image(image)
         
         image, scale = resize_image(image,args.res,args.res)
